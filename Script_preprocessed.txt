@@ -1,3 +1,0 @@
-<|>1|script.scs<|>int x = 3;
-<|>2|script.scs<|>int y = 5;
-<|>3|script.scs<|>x = 4 + y * 3;

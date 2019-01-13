@@ -1,1 +1,0 @@
-<type> x <assign> 3 <punct> <type> y <assign> 5 <punct> x <assign> 4 <add> y <mul> 3 <punct> 
