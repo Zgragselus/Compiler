@@ -1,0 +1,14 @@
+mov.reg.i32 r0 3
+push.i32 r0 
+mov.reg.i32 r0 5
+push.i32 r0 
+mov.reg.i32 r0 4
+push.i32 r0
+mov.reg.mem.i32 r0 [sp+4]
+push.i32 r0
+mov.reg.i32 r0 3
+pop.i32 r1
+mul.i32 r0 r1
+pop.i32 r1
+add.i32 r0 r1
+mov.mem.reg.i32 [sp+0] r0 
