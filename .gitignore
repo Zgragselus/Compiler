@@ -259,3 +259,11 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
+
+/CompilersAndVirtualMachines.exe
+/CompilersAndVirtualMachines.iobj
+/CompilersAndVirtualMachines.ipdb
+/Script_binary.scbin
+/Script_preprocessed.txt
+/Script_assembly.txt
+/Script_tokenized.txt
