@@ -112,14 +112,17 @@ void Compiler::Ident(bool declare, bool lvalue)
 {
 	if (declare)
 	{
+		// Declared identifier is just pushed on stack
 		mVariables.insert(std::pair<std::string, size_t>(GetIdent(), mStackOffset));
 		mCodeStack[mCodeStack.size() - 1] << "push.i32 r0 " << std::endl;
 		mStackOffset += 4;
 	}
 	else
 	{
+		// Either undeclared ident (error) or assignment/read
 		if (lvalue)
 		{
+			// Assignment (e.g. l-value), writing into memory
 			std::string ident = GetIdent();
 			if (mVariables.find(ident) == mVariables.end())
 			{
@@ -129,6 +132,7 @@ void Compiler::Ident(bool declare, bool lvalue)
 		}
 		else
 		{
+			// Reading from memory
 			std::string ident = GetIdent();
 			if (mVariables.find(ident) == mVariables.end())
 			{
@@ -160,10 +164,7 @@ void Compiler::Factor()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////
-// Term 
-// Rule '<term> ::= <factor> [<mul_op> <factor>]*'
-void Compiler::Term()
+void Compiler::MulOp()
 {
 	Factor();
 
@@ -192,12 +193,9 @@ void Compiler::Term()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////
-// Sub-Expression (numerical - addition and subtraction ops)
-// Rule '<sub> ::= <term> [<add_op> <term>]*'
-void Compiler::Sub()
+void Compiler::AddOp()
 {
-	Term();
+	MulOp();
 
 	while (Look(Lexer::ADDITION) || Look(Lexer::SUBTRACTION))
 	{
@@ -205,14 +203,14 @@ void Compiler::Sub()
 		if (Look(Lexer::ADDITION))
 		{
 			Match(Lexer::ADDITION);
-			Term();
+			MulOp();
 			mCodeStack[mCodeStack.size() - 1] << "pop.i32 r1" << std::endl;
 			mCodeStack[mCodeStack.size() - 1] << "add.i32 r0 r1" << std::endl;
 		}
 		else if (Look(Lexer::SUBTRACTION))
 		{
 			Match(Lexer::SUBTRACTION);
-			Term();
+			MulOp();
 			mCodeStack[mCodeStack.size() - 1] << "pop.i32 r1" << std::endl;
 			mCodeStack[mCodeStack.size() - 1] << "sub.i32 r0 r1" << std::endl;
 			mCodeStack[mCodeStack.size() - 1] << "neg.i32 r0" << std::endl;
@@ -224,6 +222,206 @@ void Compiler::Sub()
 	}
 }
 
+void Compiler::CompareOp()
+{
+	AddOp();
+
+	while (Look(Lexer::LEQUAL) || Look(Lexer::GEQUAL) || Look(Lexer::LESS) || Look(Lexer::GREATER))
+	{
+		mCodeStack[mCodeStack.size() - 1] << "push.i32 r0" << std::endl;
+		if (Look(Lexer::LEQUAL))
+		{
+			Match(Lexer::LEQUAL);
+			AddOp();
+			mCodeStack[mCodeStack.size() - 1] << "pop.i32 r1" << std::endl;
+			mCodeStack[mCodeStack.size() - 1] << "cmpleq.i32 r1 r0" << std::endl;
+		}
+		else if (Look(Lexer::GEQUAL))
+		{
+			Match(Lexer::GEQUAL);
+			AddOp();
+			mCodeStack[mCodeStack.size() - 1] << "pop.i32 r1" << std::endl;
+			mCodeStack[mCodeStack.size() - 1] << "cmpgeq.i32 r1 r0" << std::endl;
+		}
+		else if (Look(Lexer::LESS))
+		{
+			Match(Lexer::LESS);
+			AddOp();
+			mCodeStack[mCodeStack.size() - 1] << "pop.i32 r1" << std::endl;
+			mCodeStack[mCodeStack.size() - 1] << "cmpless.i32 r1 r0" << std::endl;
+		}
+		else if (Look(Lexer::GREATER))
+		{
+			Match(Lexer::GREATER);
+			AddOp();
+			mCodeStack[mCodeStack.size() - 1] << "pop.i32 r1" << std::endl;
+			mCodeStack[mCodeStack.size() - 1] << "cmpgreater.i32 r1 r0" << std::endl;
+		}
+		else if (Look())
+		{
+			Expected("Expected comparison operation");
+		}
+	}
+}
+
+void Compiler::EqOp()
+{
+	CompareOp();
+
+	while (Look(Lexer::EQUAL) || Look(Lexer::NOTEQUAL))
+	{
+		mCodeStack[mCodeStack.size() - 1] << "push.i32 r0" << std::endl;
+		if (Look(Lexer::EQUAL))
+		{
+			Match(Lexer::EQUAL);
+			CompareOp();
+			mCodeStack[mCodeStack.size() - 1] << "pop.i32 r1" << std::endl;
+			mCodeStack[mCodeStack.size() - 1] << "cmpeq.i32 r0 r1" << std::endl;
+		}
+		else if (Look(Lexer::NOTEQUAL))
+		{
+			Match(Lexer::NOTEQUAL);
+			CompareOp();
+			mCodeStack[mCodeStack.size() - 1] << "pop.i32 r1" << std::endl;
+			mCodeStack[mCodeStack.size() - 1] << "cmpneq.i32 r0 r1" << std::endl;
+		}
+		else if (Look())
+		{
+			Expected("Expected equal or not-equal operation");
+		}
+	}
+}
+
+// Generate new unique label
+std::string Compiler::NewLabel()
+{
+	std::string label = "L" + std::to_string(mLabelCount);
+	mLabelCount++;
+	return label;
+}
+
+// Post label into code
+void Compiler::PostLabel(const std::string& label)
+{
+	mCodeStack[mCodeStack.size() - 1] << label << ":" << std::endl;
+}
+
+void Compiler::ControlIf()
+{
+	std::string labelElse = NewLabel();
+	std::string labelEndIf = NewLabel();	
+
+	Match(Lexer::IF);
+	Match(Lexer::LPAREN);
+	EqOp();
+	Match(Lexer::RPAREN);
+	mCodeStack[mCodeStack.size() - 1] << "jz " << labelElse << std::endl;
+	
+	if (Look(Lexer::LBRACE))
+	{
+		Block();
+	}
+	else
+	{
+		Expression();
+	}
+
+	if (Look(Lexer::ELSE))
+	{
+		Match(Lexer::ELSE);
+		labelEndIf = NewLabel();
+		mCodeStack[mCodeStack.size() - 1] << "jmp " << labelEndIf << std::endl;
+		PostLabel(labelElse);
+
+		if (Look(Lexer::LBRACE))
+		{
+			Block();
+		}
+		else
+		{
+			Expression();
+		}
+	}
+
+	PostLabel(labelEndIf);
+}
+
+void Compiler::ControlDo()
+{
+	std::string labelRepeat = NewLabel();
+	std::string labelBreak = NewLabel();
+	PostLabel(labelRepeat);
+
+	Match(Lexer::DO);
+
+	if (Look(Lexer::LBRACE))
+	{
+		Block();
+	}
+	else
+	{
+		Expression();
+	}
+
+	Match(Lexer::WHILE);
+	Match(Lexer::LPAREN);
+	Assign();
+	Match(Lexer::RPAREN);
+	mCodeStack[mCodeStack.size() - 1] << "jz " << labelBreak << std::endl;
+	mCodeStack[mCodeStack.size() - 1] << "jnz " << labelRepeat << std::endl;
+	PostLabel(labelBreak);
+}
+
+void Compiler::ControlWhile()
+{
+	std::string labelRepeat = NewLabel();
+	std::string labelBreak = NewLabel();
+	PostLabel(labelRepeat);
+
+	Match(Lexer::WHILE);
+	Match(Lexer::LPAREN);
+	Assign();
+	Match(Lexer::RPAREN);
+	mCodeStack[mCodeStack.size() - 1] << "jz " << labelBreak << std::endl;
+
+	if (Look(Lexer::LBRACE))
+	{
+		Block();
+	}
+	else
+	{
+		Expression();
+	}
+
+	mCodeStack[mCodeStack.size() - 1] << "jmp " << labelRepeat << std::endl;
+	PostLabel(labelBreak);
+}
+
+void Compiler::ControlFor()
+{
+	std::string labelCondition;
+}
+
+void Compiler::Control()
+{
+	if (Look(Lexer::IF))
+	{
+		ControlIf();
+	}
+	else if (Look(Lexer::DO))
+	{
+		ControlDo();
+	}
+	else if (Look(Lexer::WHILE))
+	{
+		ControlWhile();
+	}
+	else if (Look(Lexer::FOR))
+	{
+		ControlFor();
+	}
+}
+
 //////////////////////////////////////////////////////////////////////////////
 // Assignment
 // Rule '<assign> ::= <ident> [<assign_op> <ident>]* [<assign_op> <sub>]^ | <sub>'
@@ -231,10 +429,12 @@ void Compiler::Assign()
 {
 	if (!Look(Lexer::IDENT))
 	{
-		Sub();
+		// If we don't begin with <ident>, 2nd rule takes place
+		EqOp();
 	}
 	else
 	{
+		// Buffer the assembly output
 		mCodeStack.push_back(std::stringstream());
 		Ident(false, true);
 		std::string top = mCodeStack[mCodeStack.size() - 1].str();
@@ -243,6 +443,7 @@ void Compiler::Assign()
 		size_t deep = 0;
 		bool variable = true;
 
+		// Buffer all the assignments into separate buffer
 		while (Look(Lexer::ASSIGN))
 		{
 			deep++;
@@ -250,21 +451,10 @@ void Compiler::Assign()
 
 			Match(Lexer::ASSIGN);
 
-			if (!Look(Lexer::IDENT))
-			{
-				variable = false;
-				Sub();
-			}
-			else if (variable)
-			{
-				Ident(false, true);
-			}
-			else
-			{
-				Expected("Left operand must be l-value");
-			}
+			EqOp();
 		}
 
+		// Print out in last in first out way (LIFO)
 		std::vector<std::string> temp;
 		while (deep > 0)
 		{
@@ -285,18 +475,19 @@ void Compiler::Assign()
 
 //////////////////////////////////////////////////////////////////////////////
 // Variable declaration
-// Rule '<decl> ::= <type><ident> [<assign_op> <assign>]*'
+// Rule '<decl> ::= <type><ident> [<assign_op> <assign>]^'
 void Compiler::Declaration()
 {
+	// Buffer assignments
 	Match(Lexer::TYPE);
 	mCodeStack.push_back(std::stringstream());
 	Ident(true, true);
 	std::string top = mCodeStack[mCodeStack.size() - 1].str();
 	mCodeStack.pop_back();
 
+	// Assignment on the right side is buffered
 	size_t deep = 0;
-
-	while (Look(Lexer::ASSIGN))
+	if (Look(Lexer::ASSIGN))
 	{
 		deep++;
 		mCodeStack.push_back(std::stringstream());
@@ -314,6 +505,7 @@ void Compiler::Declaration()
 		deep--;
 	}
 
+	// Print out in last in first out way (LIFO)
 	for (const std::string& s : temp)
 	{
 		mCodeStack[mCodeStack.size() - 1] << s;
@@ -331,10 +523,16 @@ void Compiler::Expression()
 	if (Look(Lexer::TYPE))
 	{
 		Declaration();
+		Match(Lexer::PUNCT);
+	}
+	else if (Look(Lexer::IF) || Look(Lexer::DO) || Look(Lexer::WHILE) || Look(Lexer::FOR))
+	{
+		Control();
 	}
 	else
 	{
 		Assign();
+		Match(Lexer::PUNCT);
 	}
 }
 
@@ -345,12 +543,25 @@ void Compiler::Expression()
 void Compiler::Command()
 {
 	Expression();
-	Match(Lexer::PUNCT);
+}
+
+// Build block
+void Compiler::Block()
+{
+	Match(Lexer::LBRACE);
+
+	while (!Look(Lexer::RBRACE))
+	{
+		Command();
+	}
+
+	Match(Lexer::RBRACE);
 }
 
 // Build program
 void Compiler::Program()
 {
+	// Just loop through commands until end of token stream
 	while (Look())
 	{
 		Command();

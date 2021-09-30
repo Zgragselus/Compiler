@@ -12,9 +12,9 @@
 
 #include "Reader.h"
 #include <map>
-#include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/tokenizer.hpp>
+//#include <boost/algorithm/string.hpp>
+//#include <boost/lexical_cast.hpp>
+//#include <boost/tokenizer.hpp>
 
 class Disassembler
 {
@@ -32,7 +32,16 @@ public:
 		MOV_REG_REG,		// Move register value into another register
 		NEG_I32,			// Negate value in register
 		MOV_MEM_REG_I32,	// Move data from register into memory
-		MOV_REG_MEM_I32		// Move data from memory into register
+		MOV_REG_MEM_I32,	// Move data from memory into register
+		CMPLEQ_I32,
+		CMPGEQ_I32,
+		CMPLESS_I32,
+		CMPGREATER_I32,
+		CMPEQ_I32,
+		CMPNEQ_I32,
+		JMP,
+		JZ,
+		JNZ
 	};
 
 private:
@@ -41,7 +50,13 @@ private:
 
 	std::map<std::string, int> mOpcodes;	// Opcodes database
 
+	std::map<std::string, int> mLabels;
+	int mLabelsCount;
+	std::map<int, int> mLabelOffset;
+
 	size_t mOffset;							
+
+	std::string mOutputFilename;
 
 	// Build opcodes database
 	void BuildOpcodes();
@@ -54,6 +69,14 @@ private:
 
 	// Process assembly line (disassemble single line)
 	void ProcessLine(const std::string& l);
+
+	int GetLabel(const std::string& name);
+
+	int GetLabelOffset(int labelID);
+
+	void StoreLabel(const std::string& name, int position);
+
+	void ResolveLabels();
 
 public:
 	// Constructor, pass in binary file and path to output file

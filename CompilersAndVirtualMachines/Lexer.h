@@ -16,10 +16,11 @@
 #include <sstream>
 #include <fstream>
 #include <iostream>
-#include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/tokenizer.hpp>
+//#include <boost/algorithm/string.hpp>
+//#include <boost/lexical_cast.hpp>
+//#include <boost/tokenizer.hpp>
 
+#include "Reader.h"
 #include "LineInfo.h"
 
 class Lexer
@@ -34,6 +35,19 @@ public:
 		DIVISION,			// /
 		LPAREN,				// (
 		RPAREN,				// )
+		LEQUAL,				// <=
+		GEQUAL,				// >=
+		LESS,				// <
+		GREATER,			// >
+		EQUAL,				// ==
+		NOTEQUAL,			// !=
+		IF,					// if
+		ELSE,				// else
+		DO,					// do
+		WHILE,				// while
+		FOR,				// for
+		LBRACE,				// {
+		RBRACE,				// }
 		IDENT,				// any identifier
 		VALUE,				// any value
 		ASSIGN,				// = -> assignment operator
@@ -61,6 +75,8 @@ private:
 
 	// Determine whether string holds a type
 	bool IsType(const std::string& value);
+
+	bool KeyWord(const std::string& keyword, const std::string& source, size_t pos);
 
 public:
 	Lexer(const std::string& filename);

@@ -11,7 +11,7 @@
 #define __LINE_INFO__H__
 
 #include <string>
-#include <boost/lexical_cast.hpp>
+//#include <boost/lexical_cast.hpp>
 
 // Struct holding additional lines information
 class LineInfo
@@ -35,7 +35,7 @@ public:
 		size_t split = part.find('|');
 		std::string num = part.substr(0, split);
 
-		mLine = boost::lexical_cast<int>(num);
+		mLine = std::stoi(num);
 		mFilename = part.substr(split + 1);
 	}
 
@@ -44,7 +44,7 @@ public:
 	{
 		std::string result;
 		result += "<|>";
-		result += boost::lexical_cast<std::string>(mLine);
+		result += std::to_string(mLine);
 		result += "|";
 		result += mFilename;
 		result += "<|>";

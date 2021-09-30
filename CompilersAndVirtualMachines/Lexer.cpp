@@ -17,6 +17,19 @@ void Lexer::PrepareTokens()
 	mTokensMap.push_back(std::pair<Token, std::string>(DIVISION, "<div>"));
 	mTokensMap.push_back(std::pair<Token, std::string>(LPAREN, "<paren_l>"));
 	mTokensMap.push_back(std::pair<Token, std::string>(RPAREN, "<paren_r>"));
+	mTokensMap.push_back(std::pair<Token, std::string>(LEQUAL, "<lequal>"));
+	mTokensMap.push_back(std::pair<Token, std::string>(GEQUAL, "<gequal>"));
+	mTokensMap.push_back(std::pair<Token, std::string>(LESS, "<less>"));
+	mTokensMap.push_back(std::pair<Token, std::string>(GREATER, "<greater>"));
+	mTokensMap.push_back(std::pair<Token, std::string>(EQUAL, "<equal>"));
+	mTokensMap.push_back(std::pair<Token, std::string>(NOTEQUAL, "<notequal>"));
+	mTokensMap.push_back(std::pair<Token, std::string>(IF, "<if>"));
+	mTokensMap.push_back(std::pair<Token, std::string>(ELSE, "<else>"));
+	mTokensMap.push_back(std::pair<Token, std::string>(DO, "<do>"));
+	mTokensMap.push_back(std::pair<Token, std::string>(WHILE, "<while>"));
+	mTokensMap.push_back(std::pair<Token, std::string>(FOR, "<for>"));
+	mTokensMap.push_back(std::pair<Token, std::string>(LBRACE, "<brace_l>"));
+	mTokensMap.push_back(std::pair<Token, std::string>(RBRACE, "<brace_r>"));
 	mTokensMap.push_back(std::pair<Token, std::string>(IDENT, "<ident>"));
 	mTokensMap.push_back(std::pair<Token, std::string>(VALUE, "<value>"));
 	mTokensMap.push_back(std::pair<Token, std::string>(ASSIGN, "<assign>"));
@@ -30,6 +43,19 @@ void Lexer::PrepareTokens()
 	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({ "/" }, DIVISION));
 	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({ "(" }, LPAREN));
 	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({ ")" }, RPAREN));
+	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({ "<=" }, LEQUAL));
+	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({ ">=" }, GEQUAL));
+	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({ "<" }, LESS));
+	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({ ">" }, GREATER));
+	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({ "==" }, EQUAL));
+	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({ "!=" }, NOTEQUAL));
+	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({ "if" }, IF));
+	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({ "else" }, ELSE));
+	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({ "do" }, DO));
+	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({ "while" }, WHILE));
+	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({ "for" }, FOR));
+	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({ "{" }, LBRACE));
+	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({ "}" }, RBRACE));
 	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({}, IDENT));
 	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({}, VALUE));
 	mTokensVars.push_back(std::pair<std::vector<std::string>, Token>({ "=" }, ASSIGN));
@@ -143,6 +169,18 @@ bool Lexer::IsType(const std::string& value)
 	return false;
 }
 
+bool Lexer::KeyWord(const std::string& keyword, const std::string& source, size_t pos)
+{
+	if (source.substr(pos, 3) == "int" &&
+		(pos == 0 || source[pos - 1] == '#' || source[pos - 1] == ' ' || source[pos - 1] == ';') &&
+		(pos == source.length() - 3 || source[pos + 3] == '#' || source[pos + 3] == ' ' || source[pos + 3] == ';'))
+	{
+		return true;
+	}
+
+	return false;
+}
+
 Lexer::Lexer(const std::string& filename)
 {
 	PrepareTokens();
@@ -218,7 +256,7 @@ Lexer::Lexer(const std::string& filename)
 		{
 			for (auto k : j.first)
 			{
-				if (boost::starts_with(tmp, k))
+				if (StringUtil::starts_with(tmp, k))
 				{
 					joined.insert(i, "#");
 					joined.insert(i + k.length() + 1, "#");
@@ -228,10 +266,38 @@ Lexer::Lexer(const std::string& filename)
 			}
 		}
 
-		// Matching type keywords
-		if (joined.substr(i, 3) == "int" &&
-			(i == 0 || joined[i - 1] == '#' || joined[i - 1] == ' ' || joined[i - 1] == ';') &&
-			(i == joined.length() - 3 || joined[i + 3] == '#' || joined[i + 3] == ' ' || joined[i + 3] == ';'))
+		// Matching keywords
+		if (KeyWord("int", joined, i))
+		{
+			joined.insert(i, "#");
+			joined.insert(i + 4, "#");
+			i += 4;
+		}
+		else if (KeyWord("if", joined, i))
+		{
+			joined.insert(i, "#");
+			joined.insert(i + 3, "#");
+			i += 3;
+		}
+		else if (KeyWord("else", joined, i))
+		{
+			joined.insert(i, "#");
+			joined.insert(i + 5, "#");
+			i += 5;
+		}
+		else if (KeyWord("do", joined, i))
+		{
+			joined.insert(i, "#");
+			joined.insert(i + 3, "#");
+			i += 3;
+		}
+		else if (KeyWord("while", joined, i))
+		{
+			joined.insert(i, "#");
+			joined.insert(i + 6, "#");
+			i += 6;
+		}
+		else if (KeyWord("for", joined, i))
 		{
 			joined.insert(i, "#");
 			joined.insert(i + 4, "#");
@@ -239,10 +305,10 @@ Lexer::Lexer(const std::string& filename)
 		}
 	}
 
-	boost::algorithm::split(mData, joined, boost::is_any_of("#"));
+	mData = StringUtil::split(joined, '#');
 	for (std::vector<std::string>::iterator it = mData.begin(); it != mData.end(); it++)
 	{
-		boost::algorithm::trim(*it);
+		StringUtil::trim(*it);
 		if ((*it).length() == 0)
 		{
 			it = mData.erase(it);
@@ -257,7 +323,7 @@ Lexer::Lexer(const std::string& filename)
 	LineInfo debugInfo = LineInfo("", 0);
 	for (size_t i = 0; i < mData.size(); i++)
 	{
-		if (boost::starts_with(mData[i], "<|>"))
+		if (StringUtil::starts_with(mData[i], "<|>"))
 		{
 			debugInfo = LineInfo(mData[i]);
 			continue;

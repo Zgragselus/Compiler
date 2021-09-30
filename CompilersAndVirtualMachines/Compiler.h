@@ -16,34 +16,11 @@
 #include <sstream>
 #include <fstream>
 #include <iostream>
-#include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/tokenizer.hpp>
+//#include <boost/algorithm/string.hpp>
+//#include <boost/lexical_cast.hpp>
+//#include <boost/tokenizer.hpp>
 #include <iostream>
 #include "Lexer.h"
-
-/*
-
-* - zero or more repeats
-+ - one or more repeats
-^ - zero or one
-
-<command> ::= <expr><punct>
-<expr> ::= <decl> | <assign>
-<decl> ::= <type><ident> [<assign_op> <assign>]*
-<assign> ::= <ident> [<assign_op> <ident>]* [<assign_op> <sub>]^ | <sub>
-<sub> ::= <term> [<add_op> <term>]*
-<term> ::= <factor> [<mul_op> <factor>]*
-<factor> ::= (<assign>) | <ident> | <integer>
-
-<type> ::= ["int"]
-<ident> ::= [A..z _][A..z 0..1 _]*
-<assign_op> ::= [=]
-<add_op> ::= [+-]
-<mul_op> ::= [/*]
-<integer> ::= [0..9]+
-
-*/
 
 class Compiler
 {
@@ -57,7 +34,9 @@ private:
 
 	size_t mStackOffset;						// Stack offset due to variables
 	std::map<std::string, size_t> mVariables;	// Maps string names to stack pointer offset
-	std::vector<std::stringstream> mCodeStack;	// Allows us to for right-to-left
+	std::vector<std::stringstream> mCodeStack;	// Allows us to for right-to-left (buffers for generated assembly)
+
+	unsigned int mLabelCount;				// Label Counter (to allow for unique labels)
 
 	// Error function
 	void Expected(const std::string& error);
@@ -74,7 +53,9 @@ private:
 	// Get value
 	std::string GetValue();
 
-	// Get identifier
+	//////////////////////////////////////////////////////////////////////////////
+	// Identifier
+	// Rule '<ident> ::= [A..z _][A..z 0..1 _]*'
 	std::string GetIdent();
 
 	//////////////////////////////////////////////////////////////////////////////
@@ -95,24 +76,46 @@ private:
 
 	//////////////////////////////////////////////////////////////////////////////
 	// Term 
-	// Rule '<term> ::= <factor> [<mul_op> <factor>]*'
-	void Term();
+	// Rule '<mul> ::= <factor> [<mul_op> <factor>]*'
+	void MulOp();
 
 	//////////////////////////////////////////////////////////////////////////////
 	// Sub-Expression (numerical - addition and subtraction ops)
-	// Rule '<sub> ::= <term> [<add_op> <term>]*'
-	void Sub();
+	// Rule '<add> ::= <mul> [<mul_op> <mul>]*'
+	void AddOp();
+
+	//////////////////////////////////////////////////////////////////////////////
+	// Sub-Expression (numerical - addition and subtraction ops)
+	// Rule '<cmp> ::= <add> [<cmp_op> <add>]*'
+	void CompareOp();
+
+	//////////////////////////////////////////////////////////////////////////////
+	// Sub-Expression (numerical - addition and subtraction ops)
+	// Rule '<eq> ::= <cmp> [<eq_op> <cmp>]*'
+	void EqOp();
+
+	// Generate new unique label
+	std::string NewLabel();
+
+	// Post label into code
+	void PostLabel(const std::string& label);
+
+	void ControlIf();
+	void ControlDo();
+	void ControlWhile();
+	void ControlFor();
+	void Control();
 
 	//////////////////////////////////////////////////////////////////////////////
 	// Assignment
 	// Rule '<assign> ::= <ident> [<assign_op> <ident>]* [<assign_op> <sub>]^ | <sub>'
 	void Assign();
-
+	
 	//////////////////////////////////////////////////////////////////////////////
 	// Variable declaration
-	// Rule '<decl> ::= <type><ident> [<assign_op> <assign>]*'
+	// Rule '<decl> ::= <type><ident> [<assign_op> <assign>]^'
 	void Declaration();
-
+	
 	//////////////////////////////////////////////////////////////////////////////
 	// Expression
 	// Rule '<expr> ::= <decl><punct> | <assign><punct>'
@@ -124,7 +127,10 @@ private:
 	// Processes single command of the program
 	void Command();
 
-	// Build program
+	// Block
+	void Block();
+
+	// Program
 	void Program();
 
 public:

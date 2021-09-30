@@ -65,7 +65,7 @@ void Preprocessor::RemoveComments(std::vector<std::pair<LineInfo, std::string> >
 			}
 
 			// Trim the line, if it is empty, erase it
-			boost::algorithm::trim((*it).second);
+			StringUtil::trim((*it).second);
 			if ((*it).second.length() == 0)
 			{
 				it = lines.erase(it);
@@ -100,35 +100,35 @@ Preprocessor::LineType Preprocessor::GetPreprocessorLineType(const std::string& 
 {
 	// Trim the line
 	std::string lineTrimmed = line;
-	boost::algorithm::trim(lineTrimmed);
+	StringUtil::trim(lineTrimmed);
 
 	// Check macro tokens (define, ifdef, ifndef, else, elif, endif
-	if (boost::algorithm::istarts_with(lineTrimmed, "#define"))
+	if (StringUtil::starts_with(lineTrimmed, "#define"))
 	{
 		return LINE_MACRO_DEFINE;
 	}
-	else if (boost::algorithm::istarts_with(lineTrimmed, "#ifdef"))
+	else if (StringUtil::starts_with(lineTrimmed, "#ifdef"))
 	{
 		return LINE_MACRO_IFDEF;
 	}
-	else if (boost::algorithm::istarts_with(lineTrimmed, "#ifndef"))
+	else if (StringUtil::starts_with(lineTrimmed, "#ifndef"))
 	{
 		return LINE_MACRO_IFNDEF;
 	}
-	else if (boost::algorithm::istarts_with(lineTrimmed, "#else"))
+	else if (StringUtil::starts_with(lineTrimmed, "#else"))
 	{
 		return LINE_MACRO_ELSE;
 	}
-	else if (boost::algorithm::istarts_with(lineTrimmed, "#elif"))
+	else if (StringUtil::starts_with(lineTrimmed, "#elif"))
 	{
 		return LINE_MACRO_ELIF;
 	}
-	else if (boost::algorithm::istarts_with(lineTrimmed, "#endif"))
+	else if (StringUtil::starts_with(lineTrimmed, "#endif"))
 	{
 		return LINE_MACRO_ENDIF;
 	}
 	// Check include token
-	else if (boost::algorithm::istarts_with(lineTrimmed, "#include"))
+	else if (StringUtil::starts_with(lineTrimmed, "#include"))
 	{
 		return LINE_INCLUDE;
 	}
@@ -213,11 +213,22 @@ void Preprocessor::PreprocessIncludes(const std::vector<std::string>& includeDir
 // Get define on given line
 std::string Preprocessor::GetDefine(const std::string& line)
 {
-	boost::char_separator<char> sep(" ");
-	boost::tokenizer< boost::char_separator<char> > tokens(line, sep);
-	auto it = tokens.begin();
-	it++;
-	return *it;
+	std::vector<std::string> tokens = StringUtil::split(line, ' ');
+	std::string define;
+
+	if (tokens.size() > 1)
+	{
+		for (int i = 1; i < tokens.size(); i++)
+		{
+			define += tokens[i];
+			if (i != (tokens.size() - 1))
+			{
+				define += std::string(" ");
+			}
+		}
+	}
+
+	return define;
 }
 
 // Process ifdef branches
